@@ -1,0 +1,29 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# PyInstaller
+build/
+dist/
+
+# Installer output
+installer/
+
+# Secrets
+.env
+.env.*
+*.secret
+
+# IDE
+.vscode/
+.idea/
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.log
