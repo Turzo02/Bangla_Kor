@@ -1,95 +1,255 @@
-# 🔤 Bangla Kor
+<div align="center">
 
-**Banglish → বাংলা — instantly, anywhere on Windows.**
+# Bangla Kor
 
-Bangla Kor is a lightweight Windows utility that converts Banglish (Romanized Bengali) text into Bengali script using a **local AI model**.
+**Write Banglish anywhere. One shortcut. Perfect বাংলা.**
+
+[![Download](https://img.shields.io/badge/Download-Latest%20Release-8B5CF6?style=for-the-badge&logo=github)](https://github.com/Turzo02/Bangla_Kor/releases/latest)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11-0078D4?style=for-the-badge&logo=windows)](https://github.com/Turzo02/Bangla_Kor/releases)
+[![Offline](https://img.shields.io/badge/100%25-Offline-4ADE80?style=for-the-badge)](https://github.com/Turzo02/Bangla_Kor/releases)
+[![License](https://img.shields.io/badge/License-Free-FFD166?style=for-the-badge)](https://github.com/Turzo02/Bangla_Kor)
+
+Made with ♥ by **Turzo**
+
+</div>
+
+---
+
+## ⬇️ Download
+
+**[👉 Download the latest release](https://github.com/Turzo02/Bangla_Kor/releases/latest)**
+
+| File | Description |
+|------|-------------|
+| `BanglaKor-Setup-v1.0.1.exe` | **Recommended** — Windows installer (~174 MB) |
+
+**Requirements**
+- Windows 10 or 11 (64-bit)
+- No Python required
+- No internet required
+- Admin rights not required
+
+---
 
 ## ✨ Features
 
-* `Ctrl + Shift + B` global shortcut
-* Works in supported Windows text fields
-* 100% offline
-* Local AI inference
-* Existing Bengali text preserved
-* URLs, emails and technical/code content protected
-* Long text handled with safe chunking
-* System tray support
-* Start with Windows option
-* Minimal modern interface
-* Conversion status HUD
-* No internet connection required
+- 🎯 **One-hotkey conversion** — `Ctrl + Shift + B` converts selected text instantly
+- 🔒 **100% offline** — no internet, no API keys, no cloud
+- 🧠 **Local AI model** — TinyTransliterator, runs on CPU
+- 🛡️ **Smart preservation** — URLs, emails, code blocks, English words, and existing Bangla are left untouched
+- 🖥️ **System tray app** — runs silently in the background
+- 🚀 **Auto-start with Windows** — optional, toggleable from tray menu
+- 🎨 **Premium UI** — animated status notifications near the cursor
+- 📋 **Clipboard-safe** — works with any focused input field
 
-## 🧠 AI Engine
+---
 
-Bangla Kor uses a local PyTorch-based character-level Transformer model for Roman-to-Bangla transliteration.
+## 🎮 How to use
 
-**Model:** `nahidstaq/bangla-transliteration`
-**License:** MIT
+1. **Click** on any text field (browser, Notepad, WhatsApp, Discord, VS Code, etc.)
+2. **Type Banglish naturally**
 
-## 🚀 How to Use
+   ```text
+   ami bhalo achi, tumi kemon acho?
+   ```
 
-1. Install Bangla Kor.
-2. Open any supported text field.
-3. Type or paste Banglish text.
-4. Press `Ctrl + Shift + B`.
-5. The selected text will be converted to Bengali.
+3. **Press** `Ctrl + Shift + B`
+4. **Done** — text becomes perfect বাংলা:
 
-Example:
+   ```text
+   আমি ভালো আছি, তুমি কেমন আছো?
+   ```
+
+---
+
+## 🧠 How it works
+
+Bangla Kor uses a fine-tuned **TinyTransliterator** (a small Transformer model) to convert Banglish → বাংলা completely offline.
+
+**Pipeline:**
 
 ```text
-ami ajke tomar sathe dekha korte chai
+Focused text field
+        ↓
+Ctrl + Shift + B (global hotkey)
+        ↓
+Select all → copy to clipboard
+        ↓
+Smart analyzer (Banglish detection)
+        ↓
+Local AI model (Ro2Bn transliteration)
+        ↓
+Cleanup + preserve protected content
+        ↓
+Paste back
 ```
 
-becomes:
+**Protected content** — the converter automatically leaves these untouched:
+- Existing বাংলা text
+- URLs (`https://...`, `www....`)
+- Email addresses
+- Inline code and code blocks
+- Technical terms (API, JSON, GitHub, PyTorch, etc.)
+- Common English words
+
+---
+
+## 🏗️ Project structure
 
 ```text
-আমি আজকে তোমার সাথে দেখা করতে চাই
-```
-
-## 📴 Offline First
-
-Bangla Kor does not require Gemini API access or an internet connection for text conversion.
-
-The AI model runs locally on the user's computer using CPU inference.
-
-## 🛠️ Project Structure
-
-```text
-Bangla Kor/
-├── main.py
-├── BanglaKor.spec
-├── BanglaKor.iss
-├── bangla-kor-icon.ico
-├── local_model/
+Bangla_Kor/
+├── main.py                  # Entry point — wires everything together
+├── config.py                # Constants + paths
+├── state.py                 # Shared runtime state (queues, locks)
+├── post_build.py            # Post-build helper (VC++ DLL copy)
+├── BanglaKor.spec           # PyInstaller spec
+├── BanglaKor.iss            # Inno Setup installer script
+├── bangla-kor-icon.ico      # App icon
+│
+├── platform_win/            # Windows-specific helpers
+│   ├── api.py               # ctypes API setup + argtypes
+│   ├── hotkey.py            # Global hotkey (own thread)
+│   ├── input.py             # SendKeys / clipboard
+│   ├── startup.py           # Auto-start registry
+│   └── single_instance.py   # Mutex
+│
+├── core/                    # Text processing
+│   ├── protect.py           # Protected words + patterns
+│   ├── analyzer.py          # Banglish detection
+│   └── model.py             # Local model load + conversion
+│
+├── ui/                      # User interface
+│   ├── toast.py             # Animated status HUD
+│   ├── window.py            # Welcome window
+│   └── tray.py              # System tray
+│
+├── local_model/             # AI model (bundled in release)
 │   ├── infer.py
-│   └── model/
-│       └── ro2bn_ft/
-│           ├── best_model.pt
-│           ├── config.json
-│           ├── src_vocab.json
-│           └── tgt_vocab.json
-├── README.md
-└── .gitignore
+│   └── model/ro2bn_ft/
+│       ├── best_model.pt
+│       ├── config.json
+│       ├── src_vocab.json
+│       └── tgt_vocab.json
+│
+└── vc_runtime/              # VC++ DLLs for clean-Windows support
 ```
 
-## 👨‍💻 Author
+---
 
-**Made with ❤️ by Turzo**
+## 🛠️ Build from source
 
-Built as a personal offline utility project with a focus on practical Windows automation, local AI and a simple user experience.
+### Prerequisites
 
-## 🤝 Credits
+- Python 3.11 or 3.12 (3.14 works but not fully tested)
+- Visual C++ Redistributable (usually preinstalled on Windows 10/11)
 
-Bangla transliteration model:
+### Setup
 
-**Md Nahid Hasan (@nahidstaq)**
+```bash
+git clone https://github.com/Turzo02/Bangla_Kor.git
+cd Bangla_Kor
 
-Model: `nahidstaq/bangla-transliteration`
+python -m venv .venv
+.venv\Scripts\activate
 
-Training data is based on the BanglaTLit dataset.
+pip install -r requirements.txt
+```
+
+### Run from source
+
+```bash
+python main.py
+```
+
+### Build the Windows executable
+
+```bash
+pyinstaller BanglaKor.spec --clean --noconfirm
+python post_build.py
+```
+
+### Build the installer
+
+Install [Inno Setup 6](https://jrsoftware.org/isdl.php), then:
+
+```bash
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" BanglaKor.iss
+```
+
+Output:
+
+```text
+installer/BanglaKor-Setup-v1.0.1.exe
+```
+
+---
+
+## 📋 Requirements
+
+```text
+customtkinter
+pyperclip
+Pillow
+torch
+numpy
+pyinstaller
+pefile
+```
+
+---
+
+## 🐛 Troubleshooting
+
+**App won't start / model load error**
+- Make sure `local_model/model/ro2bn_ft/` contains all 4 files
+- On clean Windows installs, ensure `vc_runtime/` DLLs are present next to `BanglaKor.exe`
+
+**Hotkey does not work**
+- Another app may already use `Ctrl + Shift + B`
+- Restart the app or the PC
+
+**Text conversion produces wrong output**
+- The model is trained on common Banglish patterns. Very unusual spellings may not convert correctly.
+- Protected words (URLs, code, English) are intentionally preserved.
+
+---
+
+## 📝 Changelog
+
+### v1.0.1
+- 🎨 Premium UI redesign (welcome window + toast)
+- 🏗️ Code refactor into clean modules
+- 🐛 Fixed customtkinter 5.2.x API compatibility
+- 🐛 Fixed GIL crash on UI drag
+- 🔧 64-bit safe Windows API calls
+- ⚡ 3× lower idle CPU usage
+- 📦 Bundled VC++ runtime DLLs for clean-Windows installs
+- 🚀 Inno Setup installer (per-user, no admin)
+
+### v1.0.0
+- Initial release
+
+---
+
+## 💛 Credits
+
+- **Model:** TinyTransliterator (fine-tuned by Turzo)
+- **UI:** [customtkinter](https://github.com/TomSchimansky/CustomTkinter)
+- **Bundler:** [PyInstaller](https://pyinstaller.org/)
+- **Installer:** [Inno Setup](https://jrsoftware.org/isinfo.php)
+
+---
 
 ## 📄 License
 
-This project is released under the MIT License.
+Free for personal and educational use.
 
-The bundled transliteration model is provided under its own MIT license. Please retain the original model attribution and license information when redistributing the model.
+---
+
+<div align="center">
+
+**⭐ If Bangla Kor helped you, consider starring the repo!**
+
+[Report Bug](https://github.com/Turzo02/Bangla_Kor/issues) · [Request Feature](https://github.com/Turzo02/Bangla_Kor/issues) · [Releases](https://github.com/Turzo02/Bangla_Kor/releases)
+
+</div>
