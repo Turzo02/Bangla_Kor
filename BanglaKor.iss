@@ -3,7 +3,7 @@
 ; =========================================================
 
 #define MyAppName "Bangla Kor"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.0.2"
 #define MyAppPublisher "Turzo"
 #define MyAppURL "https://github.com/Turzo02/Bangla_Kor"
 #define MyAppExeName "BanglaKor.exe"

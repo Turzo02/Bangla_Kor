@@ -21,10 +21,12 @@ SPEC_DIR = os.path.abspath(SPECPATH)
 LOCAL_MODEL_ROOT = os.path.join(SPEC_DIR, "local_model")
 LOCAL_MODEL_WEIGHTS = os.path.join(LOCAL_MODEL_ROOT, "model", "ro2bn_ft")
 VC_RUNTIME_DIR = os.path.join(SPEC_DIR, "vc_runtime")
+DATA_DIR = os.path.join(SPEC_DIR, "data")
 
 print(f"[SPEC] SPEC_DIR            = {SPEC_DIR}")
 print(f"[SPEC] LOCAL_MODEL_WEIGHTS = {LOCAL_MODEL_WEIGHTS}")
 print(f"[SPEC] VC_RUNTIME_DIR      = {VC_RUNTIME_DIR}")
+print(f"[SPEC] DATA_DIR            = {DATA_DIR}")
 
 
 # ═══════════════════════════════════════════════════════════
@@ -33,6 +35,8 @@ print(f"[SPEC] VC_RUNTIME_DIR      = {VC_RUNTIME_DIR}")
 datas = [
     # App icon
     ("bangla-kor-icon.ico", "."),
+
+    # English dictionary (used by analyzer to skip English words)
 
     # Model weights + configs (explicit — no __pycache__)
     (os.path.join(LOCAL_MODEL_WEIGHTS, "best_model.pt"),  "local_model/model/ro2bn_ft"),
@@ -52,7 +56,7 @@ binaries = []
 VC_RUNTIME_DLLS = [
     "vcruntime140.dll",
     "vcruntime140_1.dll",
-    "vcruntime140_threads.dll",       # ← critical for torch_cpu.dll
+    "vcruntime140_threads.dll",       # critical for torch_cpu.dll
     "msvcp140.dll",
     "msvcp140_1.dll",
     "msvcp140_2.dll",
@@ -144,6 +148,8 @@ a = Analysis(
         "PyQt5", "PyQt6", "PySide2", "PySide6",
         "wx", "gi",
         "setuptools", "pip", "distutils",
+        # wordfreq is only needed at build time to generate the dict
+        "wordfreq", "ftfy", "langcodes", "locate", "msgpack",
     ],
     noarchive=False,
     optimize=0,
@@ -165,7 +171,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    console=False,           # ← FINAL: no console window in release
+    console=False,           # release: no console window
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -186,5 +192,4 @@ coll = COLLECT(
     upx=False,
     upx_exclude=[],
     name="BanglaKor",
-    contents_directory=".",
 )
