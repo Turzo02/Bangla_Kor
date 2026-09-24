@@ -1,25 +1,132 @@
 """Bangla Kor — entry point. Wires all modules together."""
 import os
 import sys
-import threading
-import time
-import warnings
 
-# Console-safe mode for PyInstaller --windowed builds
+print("=== BANGLA KOR BOOT ===", flush=True)
+
 if sys.stdout is None:
     sys.stdout = open(os.devnull, "w", encoding="utf-8")
 if sys.stderr is None:
     sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
+
+# ═══════════════════════════════════════════════════════════
+# CRITICAL DLL SETUP (before torch import)
+#
+# Three fixes applied:
+#   1. Keep os.add_dll_directory() handles alive in a module-level
+#      list — otherwise Python's GC removes the search path.
+#   2. Preload torch DLLs using LoadLibraryExW with
+#      LOAD_WITH_ALTERED_SEARCH_PATH — Windows searches the DLL's
+#      OWN directory for its dependencies. This is THE fix for
+#      "shm.dll / torch_cpu.dll not found" on clean Windows.
+#   3. Load in dependency-safe order (torch_global_deps first).
+# ═══════════════════════════════════════════════════════════
+_DLL_DIR_HANDLES = []   # module-level — never let GC collect these
+
+if getattr(sys, "frozen", False):
+    _base = getattr(sys, "_MEIPASS", None) or os.path.dirname(sys.executable)
+    print(f"[BOOT] base={_base}", flush=True)
+
+    _dll_dirs = []
+    for _rel in ("torch", "torch/lib", "torch/bin"):
+        _p = os.path.join(_base, *_rel.split("/"))
+        if os.path.isdir(_p):
+            _dll_dirs.append(_p)
+            print(f"[BOOT] found: {_p}", flush=True)
+
+    # Method 1: os.add_dll_directory — KEEP HANDLES ALIVE
+    for _p in _dll_dirs:
+        try:
+            _h = os.add_dll_directory(_p)
+            _DLL_DIR_HANDLES.append(_h)
+        except Exception as _e:
+            print(f"[BOOT] add_dll_directory FAIL: {_p} → {_e}", flush=True)
+
+    # Method 2: PATH fallback
+    if _dll_dirs:
+        os.environ["PATH"] = (
+            os.pathsep.join(_dll_dirs)
+            + os.pathsep
+            + os.environ.get("PATH", "")
+        )
+
+    # Method 3: preload torch DLLs with LOAD_WITH_ALTERED_SEARCH_PATH
+    _torch_lib = os.path.join(_base, "torch", "lib")
+    if os.path.isdir(_torch_lib):
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            _LOAD_WITH_ALTERED_SEARCH_PATH = 0x00000008
+
+            _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            _kernel32.LoadLibraryExW.argtypes = [
+                wintypes.LPCWSTR,
+                wintypes.HANDLE,
+                wintypes.DWORD,
+            ]
+            _kernel32.LoadLibraryExW.restype = wintypes.HMODULE
+
+            _preload_order = [
+                "torch_global_deps.dll",
+                "c10.dll",
+                "libiomp5md.dll",
+                "libiompstubs5md.dll",
+                "uv.dll",
+                "torch_cpu.dll",
+                "shm.dll",
+                "torch.dll",
+                "torch_python.dll",
+            ]
+            for _f in sorted(os.listdir(_torch_lib)):
+                if _f.lower().endswith(".dll") and _f not in _preload_order:
+                    _preload_order.append(_f)
+
+            for _name in _preload_order:
+                _pre = os.path.join(_torch_lib, _name)
+                if not os.path.isfile(_pre):
+                    continue
+                _h = _kernel32.LoadLibraryExW(
+                    _pre, None, _LOAD_WITH_ALTERED_SEARCH_PATH
+                )
+                if _h:
+                    print(f"[BOOT] loaded {_name} (altered path)", flush=True)
+                else:
+                    _err = ctypes.get_last_error()
+                    print(f"[BOOT] skip {_name}: err={_err}", flush=True)
+        except Exception as _e:
+            print(f"[BOOT] preload section error: {_e}", flush=True)
+
+    print(f"[BOOT] kept {len(_DLL_DIR_HANDLES)} DLL dir handles alive", flush=True)
+    print("[BOOT] DLL setup complete", flush=True)
+else:
+    print("[BOOT] running from source", flush=True)
+
+
+# ═══════════════════════════════════════════════════════════
+# Warnings cleanup
+# ═══════════════════════════════════════════════════════════
+import warnings
 warnings.filterwarnings(
     "ignore",
     message=r"The PyTorch API of nested tensors.*",
 )
 
-import tkinter as tk
 
+# ═══════════════════════════════════════════════════════════
+# Standard library
+# ═══════════════════════════════════════════════════════════
+import threading
+import time
+
+import tkinter as tk
 import customtkinter as ctk
 
+
+# ═══════════════════════════════════════════════════════════
+# Application imports
+# ═══════════════════════════════════════════════════════════
 from config import MAX_INPUT_CHARS, STARTUP_MODE
 from platform_win.api import user32, get_mouse_position
 from platform_win.hotkey import register_hotkey, unregister_hotkey
@@ -42,9 +149,9 @@ from ui.window import show_main_window, process_ui_queue
 from ui.tray import SystemTray
 
 
-# =========================================================
+# ═══════════════════════════════════════════════════════════
 # Status queue → toast
-# =========================================================
+# ═══════════════════════════════════════════════════════════
 def process_status_queue(toast):
     try:
         while True:
@@ -60,9 +167,9 @@ def process_status_queue(toast):
             pass
 
 
-# =========================================================
+# ═══════════════════════════════════════════════════════════
 # Conversion worker
-# =========================================================
+# ═══════════════════════════════════════════════════════════
 def convert_current_input(original_hwnd, status_anchor):
     try:
         set_status("Selecting input", 5000, status_anchor, "working")
@@ -138,11 +245,10 @@ def start_conversion():
     worker.start()
 
 
-# =========================================================
+# ═══════════════════════════════════════════════════════════
 # Main
-# =========================================================
+# ═══════════════════════════════════════════════════════════
 def _watch_stop():
-    """Poll the stop_event from inside the tkinter loop."""
     if stop_event.is_set():
         try:
             state.root.quit()
@@ -151,6 +257,14 @@ def _watch_stop():
         return
     try:
         state.root.after(100, _watch_stop)
+    except Exception:
+        pass
+
+
+def _show_error_dialog(title, message):
+    try:
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(0, message, title, 0x10)
     except Exception:
         pass
 
@@ -171,15 +285,22 @@ def main():
     root.after(40, process_status_queue, toast)
     root.after(80, process_ui_queue)
 
-    # -----------------------------------------------------
-    # Load model
-    # -----------------------------------------------------
     set_status("Loading local AI", 60000, None, "working")
     try:
         load_local_model()
     except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"\nModel loading failed.\nError: {e}\n\n{tb}", flush=True)
+
+        _show_error_dialog(
+            "Bangla Kor - Model Load Error",
+            f"Bangla Kor failed to load the local model.\n\n"
+            f"Error: {e}\n\n"
+            f"Full traceback:\n{tb[:2000]}",
+        )
+
         set_status("Local AI failed to load", 5000, None, "error")
-        print(f"\nModel loading failed.\nError: {e}")
         try:
             root.update()
             time.sleep(2)
@@ -194,13 +315,10 @@ def main():
 
     set_status("Local AI ready", 2200, None, "success")
 
-    # -----------------------------------------------------
-    # Hotkey (own thread)
-    # -----------------------------------------------------
     try:
         register_hotkey(start_conversion)
     except Exception as e:
-        print(f"\nHotkey registration failed.\nError: {e}")
+        print(f"\nHotkey registration failed.\nError: {e}", flush=True)
         set_status("Hotkey registration failed", 5000, None, "error")
         try:
             root.update()
@@ -218,9 +336,6 @@ def main():
         release_single_instance()
         return
 
-    # -----------------------------------------------------
-    # Tray (own thread)
-    # -----------------------------------------------------
     try:
         state.TRAY = SystemTray(
             exit_callback=lambda: stop_event.set(),
@@ -229,46 +344,27 @@ def main():
         state.TRAY.start()
     except Exception as e:
         state.TRAY = None
-        print(f"\nSystem tray failed to start.\nError: {e}")
+        print(f"\nSystem tray failed to start.\nError: {e}", flush=True)
         set_status("Tray failed • App still running", 3000, None, "warning")
 
-    # -----------------------------------------------------
-    # Welcome window
-    # -----------------------------------------------------
     if not STARTUP_MODE:
         show_main_window()
 
-    # -----------------------------------------------------
-    # Console banner
-    # -----------------------------------------------------
-    print("\n" + "=" * 60)
-    print("Bangla Kor")
-    print("=" * 60)
-    print("\nAI Engine: Local")
-    print("Mode: 100% Offline")
-    print("\nCtrl + Shift + B")
-    print("-> Convert all Banglish text in the focused input")
-    print("\nSmart analyzer:")
-    print("- Existing Bangla preserved")
-    print("- Pure English preserved")
-    print("- Technical words protected")
-    print("- URLs / emails / code protected")
-    print("- Long text chunked safely")
-    print(f"- Max input: {MAX_INPUT_CHARS} characters")
-    print("\nGemini API: OFF")
-    print("Internet required: NO")
-    print("\nRight-click the tray icon for menu • Ctrl + C also stops the app.")
-    print("=" * 60)
+    print("\n" + "=" * 60, flush=True)
+    print("Bangla Kor", flush=True)
+    print("=" * 60, flush=True)
+    print("\nAI Engine: Local", flush=True)
+    print("Mode: 100% Offline", flush=True)
+    print("\nCtrl + Shift + B", flush=True)
+    print("-> Convert all Banglish text in the focused input", flush=True)
+    print(f"\nMax input: {MAX_INPUT_CHARS} characters", flush=True)
+    print("=" * 60, flush=True)
 
-    # -----------------------------------------------------
-    # tkinter mainloop — runs on main thread, owns the
-    # Windows message pump for all Tk windows.
-    # -----------------------------------------------------
     root.after(100, _watch_stop)
     try:
         root.mainloop()
     except KeyboardInterrupt:
-        print("\nStopping Bangla Kor...")
+        print("\nStopping Bangla Kor...", flush=True)
     finally:
         stop_event.set()
         unregister_hotkey()
@@ -286,8 +382,7 @@ def main():
         except Exception:
             pass
         release_single_instance()
-        print("Hotkey unregistered.")
-        print("Bangla Kor stopped.")
+        print("Bangla Kor stopped.", flush=True)
 
 
 if __name__ == "__main__":

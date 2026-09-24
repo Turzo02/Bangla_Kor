@@ -1,4 +1,4 @@
-"""Main welcome window."""
+"""Main welcome window — premium minimal edition."""
 import tkinter as tk
 
 import customtkinter as ctk
@@ -7,25 +7,35 @@ from config import APP_NAME, ICON_PATH
 from state import stop_event, ui_queue
 import state
 
-WELCOME_WIDTH = 560
-WELCOME_HEIGHT = 480
-UI_BG = "#07090E"
-UI_CARD = "#0E131C"
-UI_CARD_2 = "#111822"
-UI_CARD_3 = "#0B1018"
-UI_BORDER = "#202B3B"
-UI_BORDER_SOFT = "#182130"
-UI_MUTED = "#8995A8"
-UI_TEXT = "#F6F8FC"
-UI_TEXT_SOFT = "#C4CEDB"
-UI_ACCENT = "#8B5CF6"
-UI_ACCENT_2 = "#A78BFA"
-UI_ACCENT_SOFT = "#21183D"
-UI_GREEN = "#34D399"
-UI_GREEN_SOFT = "#102A23"
-UI_KBD = "#171F2B"
+
+# ── geometry ──────────────────────────────────────────────────
+WELCOME_WIDTH = 620
+WELCOME_HEIGHT = 620
+
+# ── palette ───────────────────────────────────────────────────
+UI_BG          = "#07090D"
+UI_CARD        = "#0B0F15"
+UI_SURFACE     = "#10151D"
+
+UI_LINE        = "#1A1F29"
+
+UI_TEXT        = "#F2F5F9"
+UI_TEXT_SOFT   = "#9AA4B3"
+UI_TEXT_MUTED  = "#5C6675"
+UI_TEXT_DIM    = "#3D4453"
+
+UI_ACCENT      = "#A78BFA"
+UI_ACCENT_SOFT = "#1B1436"
+UI_ACCENT_LINE = "#2E2354"
+
+UI_GREEN       = "#4ADE80"
+UI_GREEN_SOFT  = "#0B1F15"
+UI_GREEN_LINE  = "#1A3D2C"
 
 
+# ══════════════════════════════════════════════════════════════
+# Public API
+# ══════════════════════════════════════════════════════════════
 def center_main_window():
     root = state.root
     if root is None:
@@ -35,48 +45,86 @@ def center_main_window():
         sw = root.winfo_screenwidth()
         sh = root.winfo_screenheight()
         x = max(0, (sw - WELCOME_WIDTH) // 2)
-        y = max(0, (sh - WELCOME_HEIGHT) // 2)
+        y = max(0, (sh - WELCOME_HEIGHT) // 2 - 20)
         root.geometry(f"{WELCOME_WIDTH}x{WELCOME_HEIGHT}+{x}+{y}")
     except Exception:
         pass
 
 
 def hide_main_window():
-    root = state.root
-    if root is None:
+    if state.root is None:
         return
     try:
-        root.withdraw()
+        state.root.withdraw()
     except Exception:
         pass
 
 
+def process_ui_queue():
+    while True:
+        try:
+            action = ui_queue.get_nowait()
+        except Exception:
+            break
+        if action == "show":
+            show_main_window()
+
+    if state.root is not None and not stop_event.is_set():
+        try:
+            state.root.after(80, process_ui_queue)
+        except Exception:
+            pass
+
+
+def show_main_window():
+    if state.root is None:
+        return
+    try:
+        build_main_window()
+        center_main_window()
+        state.root.deiconify()
+        state.root.lift()
+        state.root.attributes("-topmost", True)
+        state.root.after(250, lambda: state.root.attributes("-topmost", False))
+        state.root.after(270, state.root.focus_force)
+    except Exception as exc:
+        print(f"Main window error: {exc}")
+
+
+# ══════════════════════════════════════════════════════════════
+# Helpers
+# ══════════════════════════════════════════════════════════════
 def _clear_root_children():
     root = state.root
     if root is None:
         return
     for widget in root.winfo_children():
+        if isinstance(widget, tk.Toplevel):
+            continue
         try:
             widget.destroy()
         except Exception:
             pass
 
 
-def _make_kbd(parent, text, width=46):
-    box = ctk.CTkFrame(
-        parent, width=width, height=34, corner_radius=9,
-        fg_color=UI_KBD, border_width=1, border_color="#2C394C",
+def _divider(parent, padx=28):
+    ctk.CTkFrame(
+        parent, height=1, fg_color=UI_LINE, corner_radius=0,
+    ).pack(fill="x", padx=padx)
+
+
+def _label(parent, text, *, size=11, weight="normal",
+           color=UI_TEXT, anchor="w", family="Segoe UI"):
+    return ctk.CTkLabel(
+        parent, text=text, anchor=anchor,
+        font=ctk.CTkFont(family=family, size=size, weight=weight),
+        text_color=color,
     )
-    box.pack(side="left", padx=3)
-    box.pack_propagate(False)
-    ctk.CTkLabel(
-        box, text=text,
-        font=ctk.CTkFont(size=10, weight="bold"),
-        text_color=UI_TEXT,
-    ).place(relx=0.5, rely=0.5, anchor="center")
-    return box
 
 
+# ══════════════════════════════════════════════════════════════
+# Build
+# ══════════════════════════════════════════════════════════════
 def build_main_window():
     root = state.root
     if root is None:
@@ -99,164 +147,201 @@ def build_main_window():
     except Exception:
         pass
 
-    outer = ctk.CTkFrame(root, fg_color=UI_BG, corner_radius=0)
-    outer.pack(fill="both", expand=True, padx=14, pady=14)
-
+    # ── MAIN CARD ────────────────────────────────────────────
     card = ctk.CTkFrame(
-        outer, corner_radius=24, fg_color=UI_CARD,
-        border_width=1, border_color=UI_BORDER,
+        root,
+        corner_radius=22,
+        fg_color=UI_CARD,
+        border_width=1,
+        border_color=UI_LINE,
     )
-    card.pack(fill="both", expand=True)
+    card.pack(fill="both", expand=True, padx=14, pady=14)
 
-    accent_strip = ctk.CTkFrame(card, height=3, fg_color=UI_ACCENT, corner_radius=3)
-    accent_strip.pack(fill="x", padx=24)
-
+    # ═══════════════════════════════════════════════════════
+    # HEADER
+    # ═══════════════════════════════════════════════════════
     header = ctk.CTkFrame(card, fg_color="transparent")
-    header.pack(fill="x", padx=26, pady=(22, 0))
+    header.pack(fill="x", padx=28, pady=(24, 18))
 
+    # Logo
     logo = ctk.CTkFrame(
-        header, width=58, height=58, corner_radius=17,
-        fg_color=UI_ACCENT_SOFT, border_width=1, border_color="#38285F",
+        header,
+        width=52, height=52,
+        corner_radius=14,
+        fg_color=UI_ACCENT_SOFT,
+        border_width=1,
+        border_color=UI_ACCENT_LINE,
     )
     logo.pack(side="left")
     logo.pack_propagate(False)
     ctk.CTkLabel(
         logo, text="ক",
-        font=ctk.CTkFont(size=30, weight="bold"),
-        text_color="#EDE9FE",
-    ).place(relx=0.5, rely=0.48, anchor="center")
+        font=ctk.CTkFont(family="Nirmala UI", size=24, weight="bold"),
+        text_color=UI_ACCENT,
+    ).place(relx=0.5, rely=0.5, anchor="center")
 
     brand = ctk.CTkFrame(header, fg_color="transparent")
     brand.pack(side="left", padx=(14, 0), fill="x", expand=True)
-    ctk.CTkLabel(
-        brand, text="Bangla Kor", anchor="w",
-        font=ctk.CTkFont(size=25, weight="bold"), text_color=UI_TEXT,
-    ).pack(fill="x")
-    ctk.CTkLabel(
-        brand, text="Banglish → বাংলা", anchor="w",
-        font=ctk.CTkFont(size=11, weight="bold"), text_color=UI_MUTED,
-    ).pack(fill="x", pady=(2, 0))
 
+    _label(brand, "Bangla Kor",
+           size=21, weight="bold", color=UI_TEXT).pack(fill="x")
+    _label(brand, "Banglish  →  বাংলা",
+           size=10, color=UI_TEXT_MUTED).pack(fill="x", pady=(1, 0))
+
+    # Status pill
     status = ctk.CTkFrame(
-        header, corner_radius=12, fg_color=UI_GREEN_SOFT,
-        border_width=1, border_color="#205545",
+        header,
+        corner_radius=20,
+        fg_color=UI_GREEN_SOFT,
+        border_width=1,
+        border_color=UI_GREEN_LINE,
     )
-    status.pack(side="right", anchor="n")
-    ctk.CTkLabel(
-        status, text="●  OFFLINE",
-        font=ctk.CTkFont(size=9, weight="bold"), text_color="#6EE7B7",
-    ).pack(padx=11, pady=7)
+    status.pack(side="right", anchor="n", pady=(4, 0))
+
+    inner = ctk.CTkFrame(status, fg_color="transparent")
+    inner.pack(padx=11, pady=5)
 
     ctk.CTkLabel(
-        card, text="Type normally. One shortcut turns Banglish into বাংলা.",
-        anchor="w", font=ctk.CTkFont(size=11), text_color=UI_TEXT_SOFT,
-    ).pack(fill="x", padx=26, pady=(14, 18))
+        inner, text="●",
+        font=ctk.CTkFont(family="Segoe UI", size=7),
+        text_color=UI_GREEN,
+    ).pack(side="left", padx=(0, 5))
 
-    hero = ctk.CTkFrame(
-        card, corner_radius=18, fg_color=UI_CARD_2,
-        border_width=1, border_color=UI_BORDER,
-    )
-    hero.pack(fill="x", padx=26)
+    _label(inner, "OFFLINE",
+           size=9, weight="bold", color=UI_GREEN).pack(side="left")
 
-    ctk.CTkLabel(
-        hero, text="YOUR SHORTCUT",
-        font=ctk.CTkFont(size=9, weight="bold"), text_color=UI_MUTED,
-    ).pack(pady=(13, 8))
+    _divider(card, padx=28)
 
-    keys = ctk.CTkFrame(hero, fg_color="transparent")
-    keys.pack(pady=(0, 9))
-    _make_kbd(keys, "CTRL")
-    ctk.CTkLabel(keys, text="+", width=14, font=ctk.CTkFont(size=14, weight="bold"),
-                 text_color=UI_MUTED).pack(side="left")
-    _make_kbd(keys, "SHIFT", 54)
-    ctk.CTkLabel(keys, text="+", width=14, font=ctk.CTkFont(size=14, weight="bold"),
-                 text_color=UI_MUTED).pack(side="left")
-    _make_kbd(keys, "B", 40)
+    # ═══════════════════════════════════════════════════════
+    # SHORTCUT SECTION
+    # ═══════════════════════════════════════════════════════
+    hero = ctk.CTkFrame(card, fg_color="transparent")
+    hero.pack(fill="x", padx=28, pady=(20, 20))
 
-    ctk.CTkLabel(
-        hero, text="Works in the focused text box",
-        font=ctk.CTkFont(size=10), text_color=UI_MUTED,
-    ).pack(pady=(0, 13))
+    _label(hero, "THE SHORTCUT",
+           size=9, weight="bold", color=UI_TEXT_DIM, anchor="center",
+           ).pack(fill="x")
 
-    guide_title = ctk.CTkFrame(card, fg_color="transparent")
-    guide_title.pack(fill="x", padx=26, pady=(17, 7))
-    ctk.CTkLabel(
-        guide_title, text="HOW TO USE", anchor="w",
-        font=ctk.CTkFont(size=9, weight="bold"), text_color=UI_MUTED,
-    ).pack(side="left")
-    ctk.CTkLabel(
-        guide_title, text="100% local • No cloud", anchor="e",
-        font=ctk.CTkFont(size=9), text_color="#657287",
-    ).pack(side="right")
+    keys_row = ctk.CTkFrame(hero, fg_color="transparent")
+    keys_row.pack(fill="x", pady=(14, 0))
 
-    steps = ctk.CTkFrame(card, fg_color="transparent")
-    steps.pack(fill="x", padx=26)
-    step_data = (
-        ("01", "Focus a text field", "Click where you want the Bangla text."),
-        ("02", "Press Ctrl + Shift + B", "Bangla Kor reads the current text."),
-        ("03", "Done", "Converted text replaces the selection."),
-    )
-    for number, title, desc in step_data:
-        row = ctk.CTkFrame(
-            steps, height=43, corner_radius=11, fg_color=UI_CARD_3,
-            border_width=1, border_color=UI_BORDER_SOFT,
+    keycaps_inner = ctk.CTkFrame(keys_row, fg_color="transparent")
+    keycaps_inner.pack(anchor="center")
+
+    def keycap(parent, text, width=74):
+        wrap = ctk.CTkFrame(parent, fg_color="transparent",
+                            width=width, height=48)
+        wrap.pack(side="left", padx=4)
+        wrap.pack_propagate(False)
+
+        ctk.CTkFrame(
+            wrap, width=width, height=44,
+            corner_radius=11, fg_color="#05070A",
+        ).place(x=0, y=4)
+
+        body = ctk.CTkFrame(
+            wrap, width=width, height=44,
+            corner_radius=11,
+            fg_color=UI_SURFACE,
+            border_width=1,
+            border_color=UI_LINE,
         )
-        row.pack(fill="x", pady=3)
-        row.pack_propagate(False)
-        num = ctk.CTkLabel(
-            row, text=number, width=42, height=27, corner_radius=8,
-            fg_color=UI_ACCENT_SOFT, text_color=UI_ACCENT_2,
-            font=ctk.CTkFont(size=8, weight="bold"),
-        )
-        num.pack(side="left", padx=(8, 11))
-        copy = ctk.CTkFrame(row, fg_color="transparent")
-        copy.pack(side="left", fill="both", expand=True, pady=4)
-        ctk.CTkLabel(copy, text=title, anchor="w",
-                     font=ctk.CTkFont(size=9, weight="bold"), text_color=UI_TEXT).pack(fill="x")
-        ctk.CTkLabel(copy, text=desc, anchor="w",
-                     font=ctk.CTkFont(size=8), text_color=UI_MUTED).pack(fill="x")
+        body.place(x=0, y=0)
+        body.pack_propagate(False)
 
-    footer_line = ctk.CTkFrame(card, height=1, fg_color=UI_BORDER)
-    footer_line.pack(fill="x", padx=26, pady=(13, 0))
+        ctk.CTkLabel(
+            body, text=text,
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            text_color=UI_TEXT,
+        ).place(relx=0.5, rely=0.5, anchor="center")
+
+    def plus(parent):
+        ctk.CTkLabel(
+            parent, text="+",
+            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+            text_color=UI_TEXT_DIM, width=22,
+        ).pack(side="left")
+
+    keycap(keycaps_inner, "Ctrl", 76)
+    plus(keycaps_inner)
+    keycap(keycaps_inner, "Shift", 80)
+    plus(keycaps_inner)
+    keycap(keycaps_inner, "B", 54)
+
+    _label(hero, "Works in any focused text field",
+           size=10, color=UI_TEXT_MUTED, anchor="center",
+           ).pack(fill="x", pady=(14, 0))
+
+    _divider(card, padx=28)
+
+    # ═══════════════════════════════════════════════════════
+    # QUICK START
+    # ═══════════════════════════════════════════════════════
+    steps_wrap = ctk.CTkFrame(card, fg_color="transparent")
+    steps_wrap.pack(fill="x", padx=28, pady=(18, 0))
+
+    steps_header = ctk.CTkFrame(steps_wrap, fg_color="transparent")
+    steps_header.pack(fill="x", pady=(0, 10))
+
+    _label(steps_header, "QUICK START",
+           size=9, weight="bold", color=UI_TEXT_DIM).pack(side="left")
+
+    _label(steps_header, "3 simple steps",
+           size=9, color=UI_TEXT_DIM, anchor="e").pack(side="right")
+
+    def step_row(parent, num, title, desc):
+        row = ctk.CTkFrame(parent, fg_color="transparent")
+        row.pack(fill="x", pady=5)
+
+        badge = ctk.CTkFrame(
+            row, width=24, height=24,
+            corner_radius=12,
+            fg_color="transparent",
+            border_width=1,
+            border_color=UI_LINE,
+        )
+        badge.pack(side="left", pady=(1, 0))
+        badge.pack_propagate(False)
+        ctk.CTkLabel(
+            badge, text=num,
+            font=ctk.CTkFont(family="Segoe UI", size=9, weight="bold"),
+            text_color=UI_TEXT_SOFT,
+        ).place(relx=0.5, rely=0.5, anchor="center")
+
+        txt = ctk.CTkFrame(row, fg_color="transparent")
+        txt.pack(side="left", fill="x", expand=True, padx=(12, 0))
+
+        _label(txt, title, size=11, weight="bold", color=UI_TEXT).pack(fill="x")
+        _label(txt, desc, size=9, color=UI_TEXT_MUTED).pack(fill="x", pady=(1, 0))
+
+    step_row(steps_wrap, "1", "Click any text field",
+             "Place the cursor where you want Bangla text")
+    step_row(steps_wrap, "2", "Type Banglish naturally",
+             "Example:  ami bhalo achi, tumi kemon acho?")
+    step_row(steps_wrap, "3", "Press Ctrl + Shift + B",
+             "Bangla Kor replaces it instantly")
+
+    # ═══════════════════════════════════════════════════════
+    # FOOTER — pinned to bottom
+    # ═══════════════════════════════════════════════════════
+    # Spacer pushes footer down
+    spacer = ctk.CTkFrame(card, fg_color="transparent", height=10)
+    spacer.pack(fill="x", pady=(12, 0))
+
+    _divider(card, padx=28)
 
     footer = ctk.CTkFrame(card, fg_color="transparent")
-    footer.pack(fill="x", padx=26, pady=(9, 14))
-    ctk.CTkLabel(
-        footer, text="Made with ♥ by Turzo",
-        font=ctk.CTkFont(size=10, weight="bold"), text_color="#C4B5FD",
-    ).pack(side="left")
-    ctk.CTkLabel(
-        footer, text="Close this window • Bangla Kor stays in the tray",
-        font=ctk.CTkFont(size=8), text_color="#657287",
-    ).pack(side="right")
+    footer.pack(fill="x", padx=28, pady=(12, 16))
 
+    left = ctk.CTkFrame(footer, fg_color="transparent")
+    left.pack(side="left")
 
-def show_main_window():
-    if state.root is None:
-        return
-    try:
-        build_main_window()
-        center_main_window()
-        state.root.deiconify()
-        state.root.lift()
-        state.root.attributes("-topmost", True)
-        state.root.after(250, lambda: state.root.attributes("-topmost", False))
-        state.root.after(270, state.root.focus_force)
-    except Exception as exc:
-        print(f"Main window error: {exc}")
+    _label(left, "v1.0.1",
+           size=9, weight="bold", color=UI_TEXT_SOFT).pack(side="left")
+    _label(left, "·",
+           size=9, color=UI_TEXT_DIM).pack(side="left", padx=6)
+    _label(left, "100% offline",
+           size=9, color=UI_TEXT_MUTED).pack(side="left")
 
-
-def process_ui_queue():
-    while True:
-        try:
-            action = ui_queue.get_nowait()
-        except Exception:
-            break
-        if action == "show":
-            show_main_window()
-
-    if state.root is not None and not stop_event.is_set():
-        try:
-            state.root.after(80, process_ui_queue)
-        except Exception:
-            pass
+    _label(footer, "Made with Love by Turzo",
+           size=9, color=UI_TEXT_MUTED, anchor="e").pack(side="right")

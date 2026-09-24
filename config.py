@@ -1,19 +1,55 @@
-"""Application constants and paths."""
+"""Application constants and paths.
+
+Handles two modes:
+  - Source mode: run from project folder (python main.py)
+  - Frozen mode: PyInstaller bundle (BanglaKor.exe)
+"""
 import os
 import sys
 
+
+# ═══════════════════════════════════════════════════════════
+# App identity
+# ═══════════════════════════════════════════════════════════
 APP_NAME = "Bangla Kor"
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# ═══════════════════════════════════════════════════════════
+# Base directory detection
+# ═══════════════════════════════════════════════════════════
+# When PyInstaller bundles the app, `sys._MEIPASS` points to the
+# `_internal` folder next to BanglaKor.exe, where all bundled
+# data files live. When running from source, use the folder that
+# contains this config.py.
+if getattr(sys, "frozen", False):
+    BASE_DIR = sys._MEIPASS
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+# ═══════════════════════════════════════════════════════════
+# Local model paths
+# ═══════════════════════════════════════════════════════════
 LOCAL_MODEL_ROOT = os.path.join(BASE_DIR, "local_model")
 LOCAL_MODEL_DIR = os.path.join(LOCAL_MODEL_ROOT, "model", "ro2bn_ft")
-RESOURCE_BASE_DIR = getattr(sys, "_MEIPASS", BASE_DIR)
-ICON_PATH = os.path.join(RESOURCE_BASE_DIR, "bangla-kor-icon.ico")
 
+
+# ═══════════════════════════════════════════════════════════
+# Icon path
+# ═══════════════════════════════════════════════════════════
+ICON_PATH = os.path.join(BASE_DIR, "bangla-kor-icon.ico")
+
+
+# ═══════════════════════════════════════════════════════════
+# App constants
+# ═══════════════════════════════════════════════════════════
 MAX_INPUT_CHARS = 20000
 STARTUP_MODE = "--startup" in sys.argv[1:]
 
+
+# ═══════════════════════════════════════════════════════════
 # Hotkey
+# ═══════════════════════════════════════════════════════════
 HOTKEY_ID = 1
 MOD_CONTROL = 0x0002
 MOD_SHIFT = 0x0004
@@ -23,10 +59,14 @@ WM_HOTKEY = 0x0312
 WM_QUIT = 0x0012
 PM_REMOVE = 0x0001
 
-# Tray
+
+# ═══════════════════════════════════════════════════════════
+# System tray
+# ═══════════════════════════════════════════════════════════
 WM_NULL = 0x0000
 WM_DESTROY = 0x0002
 WM_RBUTTONUP = 0x0205
+WM_LBUTTONUP = 0x0202
 WM_APP = 0x8000
 TRAY_CALLBACK_MESSAGE = WM_APP + 1
 
@@ -55,7 +95,10 @@ IMAGE_ICON = 1
 LR_LOADFROMFILE = 0x00000010
 LR_DEFAULTSIZE = 0x00000040
 
+
+# ═══════════════════════════════════════════════════════════
 # Window styles
+# ═══════════════════════════════════════════════════════════
 GWL_EXSTYLE = -20
 WS_EX_TOOLWINDOW = 0x00000080
 WS_EX_NOACTIVATE = 0x08000000
@@ -64,10 +107,16 @@ SWP_NOACTIVATE = 0x0010
 SWP_SHOWWINDOW = 0x0040
 HWND_TOPMOST = -1
 
-# Startup
+
+# ═══════════════════════════════════════════════════════════
+# Startup registry
+# ═══════════════════════════════════════════════════════════
 STARTUP_REG_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
 STARTUP_VALUE_NAME = "BanglaKor"
 
-# Single instance
+
+# ═══════════════════════════════════════════════════════════
+# Single instance mutex
+# ═══════════════════════════════════════════════════════════
 SINGLE_INSTANCE_NAME = "Local\\BanglaKor_SingleInstance_8C6C0C6D"
 ERROR_ALREADY_EXISTS = 183

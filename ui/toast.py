@@ -1,125 +1,151 @@
-"""Status HUD — floating toast notification.
-
-FIX: start_animation() now works with BOTH customtkinter 5.1.x and 5.2.x.
-"""
+"""Status HUD — premium floating toast near cursor."""
 import tkinter as tk
 
 import customtkinter as ctk
 
-from config import GWL_EXSTYLE, WS_EX_TOOLWINDOW, WS_EX_NOACTIVATE, WS_EX_APPWINDOW
-from config import SWP_NOACTIVATE, SWP_SHOWWINDOW, HWND_TOPMOST
+from config import (
+    GWL_EXSTYLE, WS_EX_TOOLWINDOW, WS_EX_NOACTIVATE, WS_EX_APPWINDOW,
+    SWP_NOACTIVATE, SWP_SHOWWINDOW, HWND_TOPMOST,
+)
 from platform_win.api import user32
 
 
 class StatusToast:
-    WIDTH = 320
-    HEIGHT = 78
-    BG = "#0F1115"
-    BORDER = "#2B303A"
-    TEXT_MAIN = "#F5F7FA"
-    TEXT_MUTED = "#9298A5"
-    CYAN = "#67E8F9"
-    GREEN = "#6EE7A3"
-    RED = "#FF7180"
-    YELLOW = "#FFD166"
+    # ── geometry ─────────────────────────────────────────────
+    WIDTH = 380
+    HEIGHT = 64
 
+    # ── palette ──────────────────────────────────────────────
+    BG_OUTER = "#07090D"        # window bg
+    CARD_BG = "#0C1016"         # card body
+    CARD_BORDER = "#1A2130"
+    TRACK = "#151A23"
+
+    TEXT = "#F2F5FA"
+    TEXT_SOFT = "#9AA4B5"
+
+    # state colors (bright accent + deep bg + border)
+    WORKING_ACCENT = "#7DD3FC"       # sky
+    WORKING_BG = "#0B2030"
+    WORKING_BORDER = "#1E4258"
+
+    SUCCESS_ACCENT = "#6EE7B7"       # emerald
+    SUCCESS_BG = "#0B2219"
+    SUCCESS_BORDER = "#1E4534"
+
+    ERROR_ACCENT = "#FCA5A5"         # rose
+    ERROR_BG = "#261117"
+    ERROR_BORDER = "#552A34"
+
+    WARN_ACCENT = "#FCD34D"          # amber
+    WARN_BG = "#221A0A"
+    WARN_BORDER = "#4D3D18"
+
+    SPINNER_FRAMES = ("◜", "◝", "◞", "◟")
+
+    # ─────────────────────────────────────────────────────────
     def __init__(self, root_window):
         self.root = root_window
-        self.window = ctk.CTkToplevel(self.root)
+
+        self.window = tk.Toplevel(self.root)
         self.window.withdraw()
         self.window.overrideredirect(True)
         self.window.attributes("-topmost", True)
-        self.window.configure(fg_color=self.BG)
+        self.window.configure(bg=self.BG_OUTER)
+        self.window.resizable(False, False)
 
+        # ── Card ─────────────────────────────────────────────
         self.card = ctk.CTkFrame(
-            self.window, width=self.WIDTH, height=self.HEIGHT,
-            corner_radius=18, fg_color=self.BG,
-            border_width=1, border_color=self.BORDER,
+            self.window,
+            width=self.WIDTH,
+            height=self.HEIGHT,
+            corner_radius=18,
+            fg_color=self.CARD_BG,
+            border_width=1,
+            border_color=self.CARD_BORDER,
         )
         self.card.pack(fill="both", expand=True)
         self.card.pack_propagate(False)
 
-        self.icon_frame = ctk.CTkFrame(
-            self.card, width=42, height=42, corner_radius=21,
-            fg_color="#171A20", border_width=1, border_color="#252A33",
+        # ── Icon square (double-layer for depth) ─────────────
+        self.icon_outer = ctk.CTkFrame(
+            self.card,
+            width=38,
+            height=38,
+            corner_radius=11,
+            fg_color=self.WORKING_BG,
+            border_width=1,
+            border_color=self.WORKING_BORDER,
         )
-        self.icon_frame.place(x=15, y=17)
-        self.icon_frame.pack_propagate(False)
+        self.icon_outer.place(x=13, y=13)
+        self.icon_outer.pack_propagate(False)
+
         self.icon_label = ctk.CTkLabel(
-            self.icon_frame, text="✦",
-            font=ctk.CTkFont(family="Segoe UI Symbol", size=18, weight="bold"),
-            text_color=self.CYAN,
+            self.icon_outer,
+            text="✦",
+            font=ctk.CTkFont(family="Segoe UI Symbol", size=14, weight="bold"),
+            text_color=self.WORKING_ACCENT,
         )
         self.icon_label.place(relx=0.5, rely=0.5, anchor="center")
 
-        self.title_label = ctk.CTkLabel(
-            self.card, text="BANGLA KOR",
-            font=ctk.CTkFont(family="Segoe UI", size=9, weight="bold"),
-            text_color=self.TEXT_MUTED, anchor="w",
-        )
-        self.title_label.place(x=70, y=10)
-
-        self.badge = ctk.CTkLabel(
-            self.card, text="● OFFLINE",
-            font=ctk.CTkFont(family="Segoe UI", size=8, weight="bold"),
-            text_color="#7EE7A7", fg_color="#14251C",
-            corner_radius=8, padx=7, pady=3,
-        )
-        self.badge.place(x=225, y=8)
-
+        # ── Message (main text) ──────────────────────────────
         self.message_label = ctk.CTkLabel(
-            self.card, text="Ready",
-            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
-            text_color=self.TEXT_MAIN, anchor="w",
+            self.card,
+            text="Ready",
+            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+            text_color=self.TEXT,
+            anchor="w",
         )
-        self.message_label.place(x=70, y=29)
+        self.message_label.place(x=64, y=23)
 
-        self.dots_label = ctk.CTkLabel(
-            self.card, text="",
-            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
-            text_color=self.CYAN,
+        # ── Right indicator (spinner / static) ───────────────
+        self.indicator = ctk.CTkLabel(
+            self.card,
+            text="",
+            font=ctk.CTkFont(family="Segoe UI Symbol", size=14, weight="bold"),
+            text_color=self.WORKING_ACCENT,
         )
-        self.dots_label.place(x=278, y=29)
+        self.indicator.place(x=self.WIDTH - 26, y=23)
 
+        # ── Bottom progress strip (2px, flush) ───────────────
         self.progress = ctk.CTkProgressBar(
-            self.card, width=235, height=3, corner_radius=4,
-            fg_color="#22262F", progress_color=self.CYAN,
+            self.card,
+            width=self.WIDTH - 36,
+            height=2,
+            corner_radius=2,
+            fg_color=self.TRACK,
+            progress_color=self.WORKING_ACCENT,
             mode="indeterminate",
         )
-        self.progress.place(x=70, y=63)
-
-        self.bottom_label = ctk.CTkLabel(
-            self.card, text="Local AI",
-            font=ctk.CTkFont(family="Segoe UI", size=8),
-            text_color="#656C79", anchor="w",
-        )
-        self.bottom_label.place(x=70, y=66)
+        self.progress.place(x=18, y=self.HEIGHT - 9)
 
         self.window.update_idletasks()
 
-        # FIX: get correct top-level HWND (not the child one)
+        # ── Native Windows tweaks ────────────────────────────
         try:
-            child_hwnd = self.window.winfo_id()
-            parent = user32.GetParent(child_hwnd)
-            self.hwnd = parent if parent else child_hwnd
-        except Exception:
             self.hwnd = self.window.winfo_id()
-
-        try:
-            # FIX: use SetWindowLongPtrW for 64-bit safety
-            ex_style = user32.GetWindowLongPtrW(self.hwnd, GWL_EXSTYLE)
-            ex_style |= WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE
-            ex_style &= ~WS_EX_APPWINDOW
-            user32.SetWindowLongPtrW(self.hwnd, GWL_EXSTYLE, ex_style)
         except Exception:
-            pass
+            self.hwnd = None
 
+        if self.hwnd:
+            try:
+                ex_style = user32.GetWindowLongPtrW(self.hwnd, GWL_EXSTYLE)
+                ex_style |= WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE
+                ex_style &= ~WS_EX_APPWINDOW
+                user32.SetWindowLongPtrW(self.hwnd, GWL_EXSTYLE, ex_style)
+            except Exception:
+                pass
+
+        # ── Runtime state ────────────────────────────────────
         self.hide_after_id = None
         self.animation_id = None
-        self.dot_index = 0
+        self.spinner_index = 0
         self.current_kind = "working"
         self.closed = False
 
+    # ─────────────────────────────────────────────────────────
+    # Internals
+    # ─────────────────────────────────────────────────────────
     def _alive(self):
         if self.closed:
             return False
@@ -128,36 +154,47 @@ class StatusToast:
         except (tk.TclError, RuntimeError):
             return False
 
+    def _fit_message(self, text):
+        length = len(text)
+        if length <= 26:
+            return 13
+        if length <= 34:
+            return 12
+        if length <= 44:
+            return 11
+        return 10
+
+    # ─────────────────────────────────────────────────────────
+    # Animation
+    # ─────────────────────────────────────────────────────────
     def start_animation(self):
-        """FIX: works with customtkinter 5.1.x AND 5.2.x."""
         self.stop_animation()
         if not self._alive():
             return
-        self.dot_index = 0
+        self.spinner_index = 0
         try:
             self.progress.configure(mode="indeterminate")
-            # 5.2.x uses configure(); 5.1.x uses start(speed)
             try:
-                self.progress.configure(indeterminate_speed=0.7)
+                self.progress.configure(indeterminate_speed=0.9)
             except Exception:
                 pass
             try:
-                self.progress.start()          # 5.2.x style
+                self.progress.start()
             except TypeError:
-                self.progress.start(0.7)       # 5.1.x fallback
+                self.progress.start(0.9)
         except tk.TclError:
             return
-        self.animate_dots()
+        self.animate_spinner()
 
-    def animate_dots(self):
+    def animate_spinner(self):
         if self.current_kind != "working" or not self._alive():
             self.animation_id = None
             return
-        dots = ("", "·", "··", "···")
         try:
-            self.dots_label.configure(text=dots[self.dot_index])
-            self.dot_index = (self.dot_index + 1) % len(dots)
-            self.animation_id = self.root.after(230, self.animate_dots)
+            frame = self.SPINNER_FRAMES[self.spinner_index]
+            self.indicator.configure(text=frame)
+            self.spinner_index = (self.spinner_index + 1) % len(self.SPINNER_FRAMES)
+            self.animation_id = self.root.after(120, self.animate_spinner)
         except tk.TclError:
             self.animation_id = None
 
@@ -171,90 +208,126 @@ class StatusToast:
         try:
             if self._alive():
                 self.progress.stop()
-                self.dots_label.configure(text="")
         except (tk.TclError, RuntimeError):
             pass
 
+    # ─────────────────────────────────────────────────────────
+    # State application
+    # ─────────────────────────────────────────────────────────
     def apply_state(self, message, kind):
         if not self._alive():
             return
         self.current_kind = kind
+
+        try:
+            size = self._fit_message(message)
+            self.message_label.configure(
+                text=message,
+                font=ctk.CTkFont(family="Segoe UI", size=size, weight="bold"),
+            )
+        except tk.TclError:
+            return
+
         if kind == "working":
-            accent = self.CYAN
             try:
-                self.icon_label.configure(text="✦", text_color=accent)
-                self.icon_frame.configure(fg_color="#12232A", border_color="#21414A")
-                self.badge.configure(text="● OFFLINE", text_color="#7EE7A7", fg_color="#14251C")
-                self.message_label.configure(text=message)
-                self.progress.configure(progress_color=accent)
+                self.icon_label.configure(text="✦", text_color=self.WORKING_ACCENT)
+                self.icon_outer.configure(
+                    fg_color=self.WORKING_BG,
+                    border_color=self.WORKING_BORDER,
+                )
+                self.progress.configure(progress_color=self.WORKING_ACCENT)
+                self.indicator.configure(text_color=self.WORKING_ACCENT)
                 self.start_animation()
             except tk.TclError:
                 return
+
         elif kind == "success":
-            accent = self.GREEN
             self.stop_animation()
             try:
-                self.icon_label.configure(text="✓", text_color=accent)
-                self.icon_frame.configure(fg_color="#14241C", border_color="#28513A")
-                self.badge.configure(text="● DONE", text_color=accent, fg_color="#14241C")
-                self.message_label.configure(text=message)
-            except tk.TclError:
-                return
-        elif kind == "error":
-            accent = self.RED
-            self.stop_animation()
-            try:
-                self.icon_label.configure(text="!", text_color=accent)
-                self.icon_frame.configure(fg_color="#28161A", border_color="#563039")
-                self.badge.configure(text="● ERROR", text_color=accent, fg_color="#28161A")
-                self.message_label.configure(text=message)
-            except tk.TclError:
-                return
-        elif kind == "warning":
-            accent = self.YELLOW
-            self.stop_animation()
-            try:
-                self.icon_label.configure(text="!", text_color=accent)
-                self.icon_frame.configure(fg_color="#292313", border_color="#554820")
-                self.badge.configure(text="● WAIT", text_color=accent, fg_color="#292313")
-                self.message_label.configure(text=message)
+                self.icon_label.configure(text="✓", text_color=self.SUCCESS_ACCENT)
+                self.icon_outer.configure(
+                    fg_color=self.SUCCESS_BG,
+                    border_color=self.SUCCESS_BORDER,
+                )
+                self.progress.configure(progress_color=self.SUCCESS_ACCENT)
+                self.indicator.configure(text="✓", text_color=self.SUCCESS_ACCENT)
             except tk.TclError:
                 return
 
+        elif kind == "error":
+            self.stop_animation()
+            try:
+                self.icon_label.configure(text="!", text_color=self.ERROR_ACCENT)
+                self.icon_outer.configure(
+                    fg_color=self.ERROR_BG,
+                    border_color=self.ERROR_BORDER,
+                )
+                self.progress.configure(progress_color=self.ERROR_ACCENT)
+                self.indicator.configure(text="!", text_color=self.ERROR_ACCENT)
+            except tk.TclError:
+                return
+
+        elif kind == "warning":
+            self.stop_animation()
+            try:
+                self.icon_label.configure(text="!", text_color=self.WARN_ACCENT)
+                self.icon_outer.configure(
+                    fg_color=self.WARN_BG,
+                    border_color=self.WARN_BORDER,
+                )
+                self.progress.configure(progress_color=self.WARN_ACCENT)
+                self.indicator.configure(text="!", text_color=self.WARN_ACCENT)
+            except tk.TclError:
+                return
+
+    # ─────────────────────────────────────────────────────────
+    # Position
+    # ─────────────────────────────────────────────────────────
+    def _compute_position(self, anchor):
+        width, height = self.WIDTH, self.HEIGHT
+        sw = self.root.winfo_screenwidth()
+        sh = self.root.winfo_screenheight()
+        margin = 14
+
+        if anchor:
+            mouse_x, mouse_y = anchor
+            x = mouse_x + 18
+            y = mouse_y - height - 14
+            if x + width > sw - margin:
+                x = mouse_x - width - 18
+            if y < margin:
+                y = mouse_y + 20
+            if x < margin:
+                x = margin
+            if x + width > sw - margin:
+                x = sw - width - margin
+            if y + height > sh - margin:
+                y = sh - height - margin
+        else:
+            x = sw - width - 24
+            y = sh - height - 72
+        return int(x), int(y)
+
+    # ─────────────────────────────────────────────────────────
+    # Show / Hide
+    # ─────────────────────────────────────────────────────────
     def show(self, message, duration_ms, anchor, kind):
         if not self._alive():
             return
         try:
             self.apply_state(message, kind)
-            width, height = self.WIDTH, self.HEIGHT
-            screen_width = self.root.winfo_screenwidth()
-            screen_height = self.root.winfo_screenheight()
-            margin = 14
+            x, y = self._compute_position(anchor)
 
-            if anchor:
-                mouse_x, mouse_y = anchor
-                x = mouse_x + 18
-                y = mouse_y - height - 16
-                if x + width > screen_width - margin:
-                    x = mouse_x - width - 18
-                if x < margin:
-                    x = margin
-                if y < margin:
-                    y = mouse_y + 22
-                if y + height > screen_height - margin:
-                    y = screen_height - height - margin
-            else:
-                x = screen_width - width - 20
-                y = screen_height - height - 70
-
-            self.window.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
+            self.window.geometry(f"{self.WIDTH}x{self.HEIGHT}+{x}+{y}")
             self.window.deiconify()
             self.window.lift()
-            user32.SetWindowPos(
-                self.hwnd, HWND_TOPMOST,
-                int(x), int(y), width, height,
-                SWP_NOACTIVATE | SWP_SHOWWINDOW,
-            )
+
+            if self.hwnd:
+                user32.SetWindowPos(
+                    self.hwnd, HWND_TOPMOST,
+                    x, y, self.WIDTH, self.HEIGHT,
+                    SWP_NOACTIVATE | SWP_SHOWWINDOW,
+                )
 
             if self.hide_after_id is not None:
                 try:
@@ -263,6 +336,7 @@ class StatusToast:
                     pass
                 self.hide_after_id = None
             self.hide_after_id = self.root.after(duration_ms, self.hide)
+
         except (tk.TclError, RuntimeError, OSError) as exc:
             if not self.closed:
                 print(f"Status HUD error: {exc}")
@@ -281,18 +355,14 @@ class StatusToast:
 
     def close(self):
         self.closed = True
-        if self.animation_id is not None:
-            try:
-                self.root.after_cancel(self.animation_id)
-            except (tk.TclError, RuntimeError):
-                pass
-            self.animation_id = None
-        if self.hide_after_id is not None:
-            try:
-                self.root.after_cancel(self.hide_after_id)
-            except (tk.TclError, RuntimeError):
-                pass
-            self.hide_after_id = None
+        for attr in ("animation_id", "hide_after_id"):
+            aid = getattr(self, attr, None)
+            if aid is not None:
+                try:
+                    self.root.after_cancel(aid)
+                except (tk.TclError, RuntimeError):
+                    pass
+                setattr(self, attr, None)
         try:
             self.window.destroy()
         except (tk.TclError, RuntimeError):

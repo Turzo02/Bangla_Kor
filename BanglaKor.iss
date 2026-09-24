@@ -1,10 +1,11 @@
 ; =========================================================
-; Bangla Kor - Windows Installer
+; Bangla Kor - Windows Installer (Inno Setup)
 ; =========================================================
 
 #define MyAppName "Bangla Kor"
-#define MyAppVersion "1.0.0"
-#define MyAppPublisher "Bangla Kor"
+#define MyAppVersion "1.0.1"
+#define MyAppPublisher "Turzo"
+#define MyAppURL "https://github.com/Turzo02/Bangla_Kor"
 #define MyAppExeName "BanglaKor.exe"
 
 [Setup]
@@ -12,32 +13,34 @@ AppId={{8C6C0C6D-1E8D-4E56-9A91-6A1F8A6C2026}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
+AppPublisherURL={#MyAppURL}
+AppSupportURL={#MyAppURL}
+AppUpdatesURL={#MyAppURL}/releases
 
-DefaultDirName={autopf}\Bangla Kor
+; Per-user install — no admin needed
+DefaultDirName={localappdata}\Programs\Bangla Kor
 DefaultGroupName={#MyAppName}
+PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=dialog
 
 OutputDir=installer
-OutputBaseFilename=BanglaKor-Setup
+OutputBaseFilename=BanglaKor-Setup-v{#MyAppVersion}
 
-Compression=lzma
+Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
-PrivilegesRequired=admin
+CloseApplications=yes
+RestartApplications=no
 
 SetupIconFile=bangla-kor-icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesInstallIn64BitMode=x64compatible
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "startup"; \
-    Description: "Start Bangla Kor with Windows"; \
-    GroupDescription: "Startup options:"; \
-    Flags: checkedonce
-
 Name: "desktopicon"; \
     Description: "Create a desktop shortcut"; \
     GroupDescription: "Additional shortcuts:"; \
@@ -59,15 +62,6 @@ Name: "{autodesktop}\Bangla Kor"; \
     WorkingDir: "{app}"; \
     Tasks: desktopicon; \
     IconFilename: "{app}\{#MyAppExeName}"
-
-[Registry]
-Root: HKCU; \
-    Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
-    ValueType: string; \
-    ValueName: "BanglaKor"; \
-    ValueData: """{app}\{#MyAppExeName}"" --startup"; \
-    Flags: uninsdeletevalue; \
-    Tasks: startup
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; \
