@@ -15,6 +15,16 @@ Made with ♥ by **Turzo**
 
 ---
 
+## 🎬 See it in action
+
+<p align="center">
+  <img src="assets/demo.gif" alt="Bangla Kor demo" width="820">
+</p>
+
+> A short tutorial showing how Bangla Kor converts Banglish and English text into বাংলা with one global shortcut.
+
+---
+
 ## ⬇️ Download
 
 **[👉 Download the latest release](https://github.com/Turzo02/Bangla_Kor/releases/latest)**
@@ -48,18 +58,30 @@ Made with ♥ by **Turzo**
 ## 🎮 How to use
 
 1. **Click** on any text field (browser, Notepad, WhatsApp, Discord, VS Code, etc.)
-2. **Type Banglish naturally**
+2. **Type Banglish or English naturally**
 
    ```text
    ami bhalo achi, tumi kemon acho?
    ```
 
 3. **Press** `Ctrl + Shift + B`
-4. **Done** — text becomes perfect বাংলা:
+4. **Done** — text becomes বাংলা:
 
    ```text
    আমি ভালো আছি, তুমি কেমন আছো?
    ```
+
+### Another example
+
+```text
+I am going to office now and will call you later.
+```
+
+becomes:
+
+```text
+আমি এখন অফিসে যাচ্ছি এবং পরে তোমাকে কল করব।
+```
 
 ---
 
@@ -76,7 +98,7 @@ Ctrl + Shift + B (global hotkey)
         ↓
 Select all → copy to clipboard
         ↓
-Smart analyzer (Banglish detection)
+Smart analyzer
         ↓
 Local AI model (Ro2Bn transliteration)
         ↓
@@ -133,6 +155,9 @@ Bangla_Kor/
 │       ├── src_vocab.json
 │       └── tgt_vocab.json
 │
+├── assets/
+│   └── demo.gif             # Short README demo/tutorial
+│
 └── vc_runtime/              # VC++ DLLs for clean-Windows support
 ```
 
@@ -188,12 +213,19 @@ installer/BanglaKor-Setup-v1.0.2.exe
 
 ## 📋 Requirements
 
+**Runtime:**
+
 ```text
 customtkinter
 pyperclip
 Pillow
 torch
 numpy
+```
+
+**Build only:**
+
+```text
 pyinstaller
 pefile
 ```
